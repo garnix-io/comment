@@ -14,14 +14,9 @@ fn main() {
 }
 
 fn run(mut args: impl Iterator<Item = String>) -> Result<()> {
-    loop {
-        match args.next() {
-            None => break,
-            Some(arg) => {
-                if arg == "--" {
-                    break;
-                }
-            }
+    while let Some(arg) = args.next() {
+        if arg == "--" {
+            break;
         }
     }
     let command = args.next().context("comment: no command given")?;
