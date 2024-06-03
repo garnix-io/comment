@@ -1,12 +1,10 @@
-
 use anyhow::{Context, Result};
-use std::env;
-use futures_lite::prelude::*;
 use async_signal::{Signal, Signals};
+use futures_lite::prelude::*;
+use std::env;
 use std::process::exit;
-
+use std::process::Stdio;
 use tokio::process::{Command};
-// use std::process::{Child,Command};
 
 fn main() {
     let result = run(env::args()) ;
@@ -21,7 +19,7 @@ fn main() {
 
 
 async fn relay_signals(child: i32) -> Result<()> {
-    // All execept SIGILL, SIGFPE, SIGKILL, SIGSEGV, SIGSTOP
+    // All termination signals that can be caught
     let mut signals : Signals = Signals::new(&[
         Signal::Term,
         Signal::Int,
@@ -30,9 +28,16 @@ async fn relay_signals(child: i32) -> Result<()> {
     ])?;
 
     while let Some(signal) = signals.next().await {
-      Command::new("kill")
+      let kill = Command::new("kill")
           .args(["-s", &(signal.unwrap() as i32).to_string(), &child.to_string()])
-          .spawn()?.wait().await?;
+          .stderr(Stdio::null())
+          .stdout(Stdio::null())
+          .spawn()?.wait().await;
+      match kill {
+          Ok(_) => { continue; }
+          Err(_) => { break; }
+      }
+
     }
     Ok(())
 }
@@ -62,8 +67,8 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<()> {
                         }
                     }
                 }
-                val = relayer => {
-                    println!("relayer")
+                _ = relayer => {
+                    println!("Relayer exited")
                 }
             };
             Ok(())
