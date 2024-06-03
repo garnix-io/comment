@@ -1,10 +1,16 @@
+
 use anyhow::{Context, Result};
 use std::env;
+use futures_lite::prelude::*;
+use async_signal::{Signal, Signals};
 use std::process::exit;
-use std::process::Command;
+
+use tokio::process::{Command};
+// use std::process::{Child,Command};
 
 fn main() {
-    match run(env::args()) {
+    let result = run(env::args()) ;
+    match result {
         Ok(()) => {}
         Err(err) => {
             eprintln!("{}", err);
@@ -13,16 +19,55 @@ fn main() {
     }
 }
 
-fn run(mut args: impl Iterator<Item = String>) -> Result<()> {
-    while let Some(arg) = args.next() {
-        if arg == "--" {
-            break;
-        }
+
+async fn relay_signals(child: i32) -> Result<()> {
+    // All execept SIGILL, SIGFPE, SIGKILL, SIGSEGV, SIGSTOP
+    let mut signals : Signals = Signals::new(&[
+        Signal::Term,
+        Signal::Int,
+        Signal::Quit,
+        Signal::Hup,
+    ])?;
+
+    while let Some(signal) = signals.next().await {
+      Command::new("kill")
+          .args(["-s", &(signal.unwrap() as i32).to_string(), &child.to_string()])
+          .spawn()?.wait().await?;
     }
-    let command = args.next().context("comment: no command given")?;
-    let command_args: Vec<String> = args.collect();
-    Command::new(command).args(command_args).spawn()?.wait()?;
     Ok(())
+}
+
+fn run(mut args: impl Iterator<Item = String>) -> Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            while let Some(arg) = args.next() {
+                if arg == "--" {
+                    break;
+                }
+            }
+            let command = args.next().context("comment: no command given")?;
+            let command_args: Vec<String> = args.collect();
+            let mut child = Command::new(command).args(command_args).spawn().expect("failed to spawn command");
+            let relayer = relay_signals(child.id().expect("failed to get child PID") as i32);
+            tokio::select! {
+                val = child.wait() => {
+                    match val {
+                        Ok(e) => { exit(e.code().unwrap()) }
+                        Err(e) => {
+                            println!("{}", e);
+                            exit(1)
+                        }
+                    }
+                }
+                val = relayer => {
+                    println!("relayer")
+                }
+            };
+            Ok(())
+        })
 }
 
 #[cfg(test)]
@@ -79,4 +124,5 @@ mod test {
         assert!(dir.path().join("file").exists());
         Ok(())
     }
+
 }
