@@ -1,5 +1,5 @@
 use assert_cmd::Command;
-use std::{ffi::OsStr, iter::empty, thread};
+use std::{ffi::OsStr, fs, iter::empty, thread, time};
 use tempfile::tempdir;
 
 #[test]
@@ -77,6 +77,26 @@ fn exits_with_128_plus_signal_if_child_is_killed() {
     }
 }
 
+#[test]
+fn relays_signals() {
+    for signal in ["SIGHUP", "SIGINT", "SIGQUIT", "SIGTERM"] {
+        let t = thread::spawn(move || {
+            run()
+                .args(["comment-test-send-signal-to-child", "--", "./signal.sh"])
+                .assert()
+                .stdout(format!("Received {signal}\n"));
+        });
+        let comment_pid = pgrep(&["--full", "comment-test-send-signal-to-child"]);
+        thread::sleep(time::Duration::from_millis(200));
+        Command::new("kill")
+            .args([format!("-{signal}"), format!("{comment_pid}")])
+            .assert()
+            .success();
+        thread::sleep(time::Duration::from_millis(100));
+        t.join().unwrap();
+    }
+}
+
 fn run() -> Command {
     Command::cargo_bin("comment").unwrap()
 }
@@ -90,5 +110,9 @@ fn pgrep(pgrep_args: &[impl AsRef<OsStr>]) -> u32 {
         }
         thread::sleep(std::time::Duration::from_millis(200));
     };
-    String::from_utf8(stdout).unwrap().trim().parse().unwrap()
+    let pid_str = String::from_utf8(stdout).unwrap();
+    pid_str
+        .trim()
+        .parse()
+        .expect(&format!("Expected {pid_str} to be a pid"))
 }
