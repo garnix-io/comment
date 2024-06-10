@@ -26,7 +26,10 @@
       {
         packages.default = rustPkgs.workspace.comment { };
         devShells.default = rustPkgs.workspaceShell {
-          packages = [ pkgs.rust-analyzer ];
+          packages = [
+            pkgs.rust-analyzer
+            pkgs.rustfmt
+          ];
         };
         apps.generateCargoNix = {
           type = "app";
