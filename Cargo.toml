@@ -8,4 +8,4 @@ tempfile = "3.10.1"
 assert_cmd = "2.0"
 
 [dependencies]
-anyhow = "1.0.81"
+signal-hook = "0.3.17"

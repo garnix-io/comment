@@ -1,7 +1,9 @@
+use signal_hook::{consts::signal, iterator::Signals};
 use std::{
     env, io,
     os::unix::process::ExitStatusExt,
     process::{self, Command},
+    thread,
 };
 
 fn main() {
@@ -24,7 +26,10 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<(), Exit> {
         .next()
         .ok_or(Exit::error("comment: no command given"))?;
     let command_args: Vec<String> = args.collect();
-    let exit = Command::new(&command).args(command_args).spawn()?.wait()?;
+    let mut child = Command::new(&command).args(command_args).spawn()?;
+    let child_pid = child.id();
+    thread::spawn(move || relay_signals(child_pid).unwrap());
+    let exit = child.wait()?;
     match exit.code() {
         Some(0) => Ok(()),
         Some(code) => Err(Exit { code, msg: None }),
@@ -36,6 +41,24 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<(), Exit> {
             })
         }
     }
+}
+
+fn relay_signals(pid: u32) -> io::Result<()> {
+    // All execept SIGILL, SIGFPE, SIGKILL, SIGSEGV, SIGSTOP
+    let mut signals = Signals::new(&[
+        signal::SIGHUP,
+        signal::SIGINT,
+        signal::SIGQUIT,
+        signal::SIGTERM,
+    ])?;
+    signals.handle();
+    for signal in &mut signals {
+        Command::new("kill")
+            .args(["-s", &signal.to_string(), &pid.to_string()])
+            .spawn()?
+            .wait()?;
+    }
+    Ok(())
 }
 
 struct Exit {
