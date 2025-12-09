@@ -1,5 +1,5 @@
 use assert_cmd::Command;
-use std::{ffi::OsStr, fs, iter::empty, thread, time};
+use std::{ffi::OsStr, iter::empty, thread, time};
 use tempfile::tempdir;
 
 #[test]
