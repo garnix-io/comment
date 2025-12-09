@@ -17,7 +17,7 @@ fn main() {
 }
 
 fn run(mut args: impl Iterator<Item = String>) -> Result<(), Exit> {
-    while let Some(arg) = args.next() {
+    for arg in args.by_ref() {
         if arg == "--" {
             break;
         }
@@ -45,7 +45,7 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<(), Exit> {
 
 fn relay_signals(pid: u32) -> io::Result<()> {
     // All execept SIGILL, SIGFPE, SIGKILL, SIGSEGV, SIGSTOP
-    let mut signals = Signals::new(&[
+    let mut signals = Signals::new([
         signal::SIGHUP,
         signal::SIGINT,
         signal::SIGQUIT,
