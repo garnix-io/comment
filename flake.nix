@@ -1,9 +1,5 @@
 {
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11-small";
-  inputs.flake-compat = {
-    url = "github:edolstra/flake-compat";
-    flake = false;
-  };
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.crane.url = "github:ipetkov/crane";
   outputs = { nixpkgs, flake-utils, crane, ... }:
